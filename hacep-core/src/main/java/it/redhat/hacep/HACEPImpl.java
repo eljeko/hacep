@@ -19,6 +19,7 @@ package it.redhat.hacep;
 
 import it.redhat.hacep.cache.PutterImpl;
 import it.redhat.hacep.cache.RulesUpdateVersionImpl;
+import it.redhat.hacep.cache.executors.Suspend;
 import it.redhat.hacep.cache.listeners.FactListenerPost;
 import it.redhat.hacep.cache.listeners.SessionListenerPost;
 import it.redhat.hacep.cache.listeners.SessionListenerPre;
@@ -28,16 +29,16 @@ import it.redhat.hacep.cache.session.KieSessionSaver;
 import it.redhat.hacep.configuration.*;
 import it.redhat.hacep.model.Fact;
 import org.infinispan.Cache;
+import org.infinispan.distexec.DefaultExecutorService;
+import org.infinispan.distexec.DistributedExecutorService;
 import org.infinispan.manager.EmbeddedCacheManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @ApplicationScoped
@@ -129,9 +130,24 @@ public class HACEPImpl implements HACEP {
         }
     }
 
-    @Override
-    public void suspend() {
+    /*
+    public void localSuspend() {
         this.router.suspend();
+    } */
+
+    public boolean suspend() {
+        DistributedExecutorService des = new DefaultExecutorService(dataGridManager.getReplicatedCache());
+        List<Future> results = des.submitEverywhere(new Suspend());
+
+        for (Future result : results) {
+            try {
+                result.get();
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

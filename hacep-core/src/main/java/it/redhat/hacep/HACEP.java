@@ -27,7 +27,7 @@ public interface HACEP {
 
     void stop();
 
-    void suspend();
+    boolean suspend();
 
     void resume();
 
